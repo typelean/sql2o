@@ -135,7 +135,11 @@ public class Connection implements AutoCloseable, Closeable {
             logger.warn("Could not roll back transaction. message: {}", e);
         }
         finally {
-            if(closeConnection) this.closeJdbcConnection();
+            //if(closeConnection) this.closeJdbcConnection();
+            if(closeConnection) {
+                this.closeAndClearStatements();
+                this.closeJdbcConnection();
+            }
         }
         return this;
     }
@@ -152,8 +156,11 @@ public class Connection implements AutoCloseable, Closeable {
             throw new Sql2oException(e);
         }
         finally {
-            if(closeConnection)
+            //if(closeConnection) this.closeJdbcConnection();
+            if(closeConnection) {
+                this.closeAndClearStatements();
                 this.closeJdbcConnection();
+            }
         }
         return this;
     }
@@ -263,6 +270,19 @@ public class Connection implements AutoCloseable, Closeable {
         statements.remove(statement);
     }
 
+
+    private void closeAndClearStatements() {
+        for (Statement statement : statements) {
+            try {
+                getSql2o().getQuirks().closeStatement(statement);
+            } catch (Throwable e) {
+               logger.warn("Could not close statement.", e);
+            }
+        }
+        statements.clear();
+    }
+
+
     public void close() {
         boolean connectionIsClosed;
         try {
@@ -273,14 +293,15 @@ public class Connection implements AutoCloseable, Closeable {
 
         if (!connectionIsClosed) {
 
-            for (Statement statement : statements) {
-                try {
-                    getSql2o().getQuirks().closeStatement(statement);
-                } catch (Throwable e) {
-                    logger.warn("Could not close statement.", e);
-                }
-            }
+            //for (Statement statement : statements) {
+            //    try {
+            //        getSql2o().getQuirks().closeStatement(statement);
+            //    } catch (Throwable e) {
+            //        logger.warn("Could not close statement.", e);
+            //    }
+            //}
             statements.clear();
+            closeAndClearStatements();
 
             boolean rollback = rollbackOnClose;
             if (rollback) {
